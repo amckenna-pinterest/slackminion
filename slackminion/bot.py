@@ -9,6 +9,7 @@ from slackminion.slack import SlackEvent, SlackUser, SlackRoomIMBase
 from slackminion.exceptions import NotSetupError
 from slackminion.plugin import PluginManager
 from slackminion.webserver import Webserver
+from slackminion.utils.util import dev_mode_repl
 
 
 class Bot(object):
@@ -29,10 +30,13 @@ class Bot(object):
         self.sc = None
         self.webserver = None
         self.test_mode = test_mode
+        self.dev_mode = dev_mode
         self.reconnect_needed = True
         self.bot_start_time = None
         self.timers = []
         self.event_loop = asyncio.get_event_loop()
+        self.event_loop.add_signal_handler(signal.SIGINT, self.graceful_shutdown)
+        self.event_loop.add_signal_handler(signal.SIGTERM, self.graceful_shutdown)
 
         if self.test_mode:
             self.metrics = {
@@ -54,8 +58,12 @@ class Bot(object):
         self.webserver = Webserver(self.config['webserver']['host'], self.config['webserver']['port'])
         self.plugins.load()
         self.plugins.load_state()
-        self.rtm_client = slack.RTMClient(token=self.config.get('slack_token'), run_async=True)
-        self.web_client = slack.WebClient(token=self.config.get('slack_token'), run_async=True)
+        if self.dev_mode:
+            self.rtm_client = None
+            self.web_client = None
+        else:
+            self.rtm_client = slack.RTMClient(token=self.config.get('slack_token'), run_async=True)
+            self.web_client = slack.WebClient(token=self.config.get('slack_token'), run_async=True)
 
         self.always_send_dm = ['_unauthorized_']
         if 'always_send_dm' in self.config:
@@ -89,9 +97,13 @@ class Bot(object):
         first_connect = True
 
         try:
-            self.rtm_client_task = asyncio.ensure_future(self.rtm_client.start())
             self.event_loop.add_signal_handler(signal.SIGINT, self.graceful_shutdown)
             self.event_loop.add_signal_handler(signal.SIGTERM, self.graceful_shutdown)
+            if not self.dev_mode:
+                self.rtm_client_task = asyncio.ensure_future(self.rtm_client.start())
+            else:
+                await dev_mode_repl(self)
+
             while self.runnable:
                 uptime = datetime.datetime.now() - self.bot_start_time
                 hours = divmod(uptime.total_seconds(), 3600)[0]
@@ -107,6 +119,7 @@ class Bot(object):
                     self.plugins.connect()
                 self.sleep_task = asyncio.ensure_future(asyncio.sleep(60))
                 await self.sleep_task
+
         except asyncio.exceptions.CancelledError:
             self.log.info('Slack RTM client shutdown by CTRL-C')
         except Exception:
@@ -138,8 +151,11 @@ class Bot(object):
         if isinstance(channel, SlackRoomIMBase):
             channel = channel.id
         self.log.debug("Trying to send to %s: %s", channel, text)
-        await self.web_client.chat_postMessage(as_user=True, channel=channel, text=text, thread=thread,
-                                               reply_broadcast=reply_broadcast, attachments=attachments)
+        if self.dev_mode:
+            print(f'Command Output: {text}')
+        else:
+            await self.web_client.chat_postMessage(as_user=True, channel=channel, text=text, thread=thread,
+                                                   reply_broadcast=reply_broadcast, attachments=attachments)
 
     async def send_im(self, user, text):
         """
@@ -153,7 +169,10 @@ class Bot(object):
             channelid = self._find_im_channel(user)
         else:
             channelid = user.id
-        await self.send_message(channelid, text)
+        if self.dev_mode:
+            print(f'Command Output: {text}')
+        else:
+            await self.send_message(channelid, text)
 
     def _find_im_channel(self, user):
         resp = self.sc.api_call('im.list')
