@@ -172,8 +172,10 @@ class Bot(object):
             channelid = self._find_im_channel(user)
         else:
             channelid = user.id
-
-        await self.send_message(channelid, text)
+        if self.dev_mode:
+            print(f'Command Output: {text}')
+        else:
+            await self.send_message(channelid, text)
 
     def _find_im_channel(self, user):
         resp = self.sc.api_call('im.list')
