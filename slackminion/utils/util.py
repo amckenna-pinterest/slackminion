@@ -20,6 +20,15 @@ def format_docstring(docstring):
     )
     return formatted_text
 
+def output_to_repl(text):
+    try:
+        console_width = min(int(os.popen('stty size', 'r').read().split()[1]), 120) - 20
+    except:
+        console_width = 80
+    banner_text = ' COMMAND OUTPUT '
+    padding = '=' * ((console_width - len(banner_text)) // 2)
+    banner = padding + banner_text + padding
+    print(banner + os.linesep + text + os.linesep + '=' * len(banner))
 
 def output_to_repl(text):
     try:
@@ -50,8 +59,6 @@ async def dev_mode_repl(bot):
     while not bot.webserver.thread.is_alive:
         print('Waiting for webserver to start...')
         await asyncio.sleep(1)
-    print(banner)
-    print('=' * len(banner))
     while bot.runnable:
         try:
             command = input("Slackminion DEV_MODE (type a !command.  use 'exit' to leave)> ")
@@ -69,7 +76,7 @@ async def dev_mode_repl(bot):
         payload = {
             'data': {
                 'user': 'console_user',
-                'channel': 'test channel',
+                'channel': 'stdout',
                 'text': command,
                 'ts': None
             }

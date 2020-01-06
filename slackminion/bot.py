@@ -172,10 +172,8 @@ class Bot(object):
             channelid = self._find_im_channel(user)
         else:
             channelid = user.id
-        if self.dev_mode:
-            print(f'Command Output: {text}')
-        else:
-            await self.send_message(channelid, text)
+
+        await self.send_message(channelid, text)
 
     def _find_im_channel(self, user):
         resp = self.sc.api_call('im.list')
@@ -231,7 +229,8 @@ class Bot(object):
         except Exception:
             self.log.exception('Unhandled exception')
             return
-        self.log.debug(f"Output from dispatcher: {output}")
+        if not self.dev_mode:
+            self.log.debug(f"Output from dispatcher: {output}")
         if output:
             await self._prepare_and_send_output(cmd, msg, cmd_options, output)
 
