@@ -10,7 +10,7 @@ from slackminion.slack import SlackEvent, SlackUser, SlackRoomIMBase
 from slackminion.exceptions import NotSetupError
 from slackminion.plugin import PluginManager
 from slackminion.webserver import Webserver
-from slackminion.utils.util import dev_mode_repl
+from slackminion.utils.util import dev_mode_repl, output_to_repl
 
 
 class Bot(object):
@@ -80,10 +80,11 @@ class Bot(object):
     def graceful_shutdown(self):
         self.log.debug('Starting graceful shutdown.')
         self.runnable = False
-        self.log.debug('Canceling sleep.')
-        self.sleep_task.cancel()
-        self.log.debug('Stopping RTM client.')
-        self.rtm_client.stop()
+        if not self.dev_mode:
+            self.log.debug('Canceling sleep.')
+            self.sleep_task.cancel()
+            self.log.debug('Stopping RTM client.')
+            self.rtm_client.stop()
 
     async def run(self):
         """
@@ -150,9 +151,9 @@ class Bot(object):
         # This doesn't want the # in the channel name
         if isinstance(channel, SlackRoomIMBase):
             channel = channel.id
-        self.log.debug("Trying to send to %s: %s", channel, text)
+        self.log.debug(f'Trying to send to {channel}: {text[:40]} (truncated)')
         if self.dev_mode:
-            print(f'Command Output: {text}')
+            output_to_repl(text)
         else:
             await self.web_client.chat_postMessage(as_user=True, channel=channel, text=text, thread=thread,
                                                    reply_broadcast=reply_broadcast, attachments=attachments)
@@ -164,15 +165,16 @@ class Bot(object):
         * user - The user to send to.  This can be a SlackUser object, a user id, or the username (without the @)
         * text - String to send
         """
+        if self.dev_mode:
+            output_to_repl(text)
+            return
         if isinstance(user, SlackUser):
             user = user.id
             channelid = self._find_im_channel(user)
         else:
             channelid = user.id
-        if self.dev_mode:
-            print(f'Command Output: {text}')
-        else:
-            await self.send_message(channelid, text)
+
+        await self.send_message(channelid, text)
 
     def _find_im_channel(self, user):
         resp = self.sc.api_call('im.list')
@@ -227,7 +229,8 @@ class Bot(object):
         except:
             self.log.exception('Unhandled exception')
             return
-        self.log.debug(f"Output from dispatcher: {output}")
+        if not self.dev_mode:
+            self.log.debug(f"Output from dispatcher: {output}")
         if output:
             await self._prepare_and_send_output(cmd, msg, cmd_options, output)
 
