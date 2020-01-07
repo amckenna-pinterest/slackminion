@@ -2,6 +2,7 @@ import textwrap
 import asyncio
 import os
 
+
 def format_docstring(docstring):
     """
     Uses textwrap to auto-dedent a docstring (removes leading spaces)
@@ -29,17 +30,6 @@ def output_to_repl(text):
     padding = '=' * ((console_width - len(banner_text)) // 2)
     banner = padding + banner_text + padding
     print(banner + os.linesep + text + os.linesep + '=' * len(banner))
-
-def output_to_repl(text):
-    try:
-        console_width = min(int(os.popen('stty size', 'r').read().split()[1]), 120) - 20
-    except:
-        console_width = 80
-    banner_text = ' COMMAND OUTPUT '
-    padding = '=' * ((console_width - len(banner_text)) // 2)
-    banner = padding + banner_text + padding
-    print(banner + os.linesep + text + os.linesep + '=' * len(banner))
-
 
 async def dev_mode_repl(bot):
     banner = 'Slackminion: Starting DEV MODE'
