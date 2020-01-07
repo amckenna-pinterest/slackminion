@@ -220,6 +220,7 @@ class Bot(object):
     async def _event_message(self, **payload):
         self.log.debug(f"Received message: {payload}")
         msg = self._handle_event('message', payload)
+        self.log.debug(msg)
 
         # The user manager should load rights when a user is added
         if not hasattr(self, 'user_manager'):
@@ -229,8 +230,7 @@ class Bot(object):
         except Exception:
             self.log.exception('Unhandled exception')
             return
-        if not self.dev_mode:
-            self.log.debug(f"Output from dispatcher: {output}")
+        self.log.debug(f"Output from dispatcher: {output}")
         if output:
             await self._prepare_and_send_output(cmd, msg, cmd_options, output)
 
