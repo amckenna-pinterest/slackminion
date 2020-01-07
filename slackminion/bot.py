@@ -61,10 +61,9 @@ class Bot(object):
         self.plugins.load_state()
         if self.dev_mode:
             self.rtm_client = None
-            self.web_client = None
         else:
             self.rtm_client = slack.RTMClient(token=self.config.get('slack_token'), run_async=True)
-            self.web_client = slack.WebClient(token=self.config.get('slack_token'), run_async=True)
+        self.web_client = slack.WebClient(token=self.config.get('slack_token'), run_async=True)
 
         self.always_send_dm = ['_unauthorized_']
         if 'always_send_dm' in self.config:
@@ -227,7 +226,7 @@ class Bot(object):
         if not hasattr(self, 'user_manager'):
             self._load_user_rights(msg.user)
         try:
-            cmd, output, cmd_options = self.dispatcher.push(msg)
+            cmd, output, cmd_options = await self.dispatcher.push(msg)
         except:
             self.log.exception('Unhandled exception')
             return
