@@ -229,8 +229,7 @@ class Bot(object):
         except Exception:
             self.log.exception('Unhandled exception')
             return
-        if not self.dev_mode:
-            self.log.debug(f"Output from dispatcher: {output}")
+        self.log.debug(f"Output from dispatcher: {output}")
         if output:
             await self._prepare_and_send_output(cmd, msg, cmd_options, output)
 
