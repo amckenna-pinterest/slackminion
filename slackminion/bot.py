@@ -123,7 +123,7 @@ class Bot(object):
 
         except asyncio.exceptions.CancelledError:
             self.log.info('Slack RTM client shutdown by CTRL-C')
-        except:
+        except Exception:
             self.log.exception('Unhandled exception')
             raise
 
@@ -227,7 +227,7 @@ class Bot(object):
             self._load_user_rights(msg.user)
         try:
             cmd, output, cmd_options = await self.dispatcher.push(msg)
-        except:
+        except Exception:
             self.log.exception('Unhandled exception')
             return
         self.log.debug(f"Output from dispatcher: {output}")
