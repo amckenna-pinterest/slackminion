@@ -1,10 +1,11 @@
-import logging
 from six import string_types
 from flask import current_app, request
-
 from slackminion.exceptions import DuplicateCommandError
 from slackminion.slack import SlackChannel
 from slackminion.utils.util import format_docstring
+import logging
+import inspect
+
 
 class BaseCommand(object):
     def __init__(self, method):
@@ -110,7 +111,8 @@ class MessageDispatcher(object):
         plugin.on_load()
 
     def _register_commands(self, plugin):
-        for name in dir(plugin):
+        possible_commands = [x for x in dir(plugin) if not x.startswith('_')]
+        for name in possible_commands:
             method = getattr(plugin, name)
             if callable(method) and hasattr(method, 'is_cmd'):
                 commands = [method.cmd_name]

@@ -1,5 +1,6 @@
 class SlackRoomAttribute(object):
     """Represents a room attribute, such as name, creator, topic, etc"""
+
     def __init__(self):
         self.data = None
 
@@ -14,6 +15,7 @@ class SlackRoomAttribute(object):
 
 class SlackRoomTopic(SlackRoomAttribute):
     """Extension of SlackRoomAttribute, makes API call to set topic when __set__ is called"""
+
     def __set__(self, instance, value):
         prev_value = self.data
         super(SlackRoomTopic, self).__set__(instance, value)

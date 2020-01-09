@@ -1,9 +1,10 @@
-from builtins import object
 import logging
 
 
 class SlackUser(object):
     """Represents a Slack user"""
+    is_admin = False
+
     def __init__(self, id, sc=None):
         self.id = id
         self._sc = sc
@@ -32,8 +33,6 @@ class SlackUser(object):
         user = SlackUser(resp.id, sc)
         return user
 
-    def __str__(self):
+    @property
+    def formatted_name(self):
         return '<@%s|%s>' % (self.id, self.username)
-
-    def __repr__(self):
-        return self.id
