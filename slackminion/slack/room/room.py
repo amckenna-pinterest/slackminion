@@ -52,14 +52,17 @@ class SlackRoom(SlackRoomIMBase):
             setattr(self, k, v)
 
     @staticmethod
-    def get_channel(sc, channel_name):
-        resp = sc.server.channels.find(channel_name)
+    async def get_channel(web_client, channel_name):
+        resp = await web_client.conversations_list()
+        print(resp)
+        channel_name='sre'
+        kwargs = {''}
         if resp is None:
             return None
         channel_class = SlackChannel
         if resp.id[0] == 'G':
             channel_class = SlackGroup
-        channel = channel_class(resp.id, name=resp.name, sc=sc)
+        channel = channel_class(resp.id, name=resp.name, sc=web_client)
         return channel
 
     @property

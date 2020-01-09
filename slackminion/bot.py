@@ -9,7 +9,7 @@ from slackminion.slack import SlackEvent, SlackUser, SlackRoomIMBase
 from slackminion.exceptions import NotSetupError
 from slackminion.plugin import PluginManager
 from slackminion.webserver import Webserver
-from slackminion.utils.util import dev_mode_repl, output_to_repl
+from slackminion.utils.util import dev_console, output_to_dev_console
 
 
 class Bot(object):
@@ -18,6 +18,7 @@ class Bot(object):
     webserver = None
     rtm_client_task = None
     sleep_task = None
+    tasks = []
 
     def __init__(self, config, test_mode=False, dev_mode=False):
         self.always_send_dm = []
@@ -37,6 +38,7 @@ class Bot(object):
         self.event_loop = asyncio.get_event_loop()
         self.event_loop.add_signal_handler(signal.SIGINT, self.graceful_shutdown)
         self.event_loop.add_signal_handler(signal.SIGTERM, self.graceful_shutdown)
+        self.event_loop.call_later(1, self.await_tasks)
 
         if self.test_mode:
             self.metrics = {
@@ -50,6 +52,12 @@ class Bot(object):
             self.commit = commit
         except ImportError:
             self.commit = "HEAD"
+
+    async def await_tasks(self):
+        for task in self.tasks:
+            await task
+            self.tasks.remove(task)
+        self.event_loop.call_later(1, self.await_tasks)
 
     def start(self):
         """Initializes the bot, plugins, and everything."""
@@ -102,7 +110,8 @@ class Bot(object):
             if not self.dev_mode:
                 self.rtm_client_task = asyncio.ensure_future(self.rtm_client.start())
             else:
-                await dev_mode_repl(self)
+                self.plugins.connect()
+                await dev_console(self)
 
             while self.runnable:
                 uptime = datetime.datetime.now() - self.bot_start_time
@@ -137,7 +146,7 @@ class Bot(object):
             self.plugins.save_state()
         self.plugins.unload_all()
 
-    async def send_message(self, channel, text, thread=None, reply_broadcast=None, attachments=None):
+    def send_message(self, channel, text, thread=None, reply_broadcast=None, attachments=None):
         """
         Sends a message to the specified channel
 
@@ -152,10 +161,12 @@ class Bot(object):
             channel = channel.id
         self.log.debug(f'Trying to send to {channel}: {text[:40]} (truncated)')
         if self.dev_mode:
-            output_to_repl(text)
+            output_to_dev_console(text)
         else:
-            await self.web_client.chat_postMessage(as_user=True, channel=channel, text=text, thread=thread,
-                                                   reply_broadcast=reply_broadcast, attachments=attachments)
+            task = asyncio.create_task(
+                self.web_client.chat_postMessage(as_user=True, channel=channel, text=text, thread=thread,
+                                                 reply_broadcast=reply_broadcast, attachments=attachments))
+            self.tasks.append(task)
 
     async def send_im(self, user, text):
         """
@@ -165,7 +176,7 @@ class Bot(object):
         * text - String to send
         """
         if self.dev_mode:
-            output_to_repl(text)
+            output_to_dev_console(text)
             return
         if isinstance(user, SlackUser):
             user = user.id
@@ -173,7 +184,7 @@ class Bot(object):
         else:
             channelid = user.id
 
-        await self.send_message(channelid, text)
+        self.send_message(channelid, text)
 
     def _find_im_channel(self, user):
         resp = self.sc.api_call('im.list')
@@ -216,7 +227,7 @@ class Bot(object):
         slack.RTMClient.on(event='error', callback=self._event_error)
         slack.RTMClient.on(event='team_migration_started', callback=self._event_error)
 
-    async def _event_message(self, **payload):
+    def _event_message(self, **payload):
         self.log.debug(f"Received message: {payload}")
         msg = self._handle_event('message', payload)
         self.log.debug(msg)
@@ -231,9 +242,9 @@ class Bot(object):
             return
         self.log.debug(f"Output from dispatcher: {output}")
         if output:
-            await self._prepare_and_send_output(cmd, msg, cmd_options, output)
+            self._prepare_and_send_output(cmd, msg, cmd_options, output)
 
-    async def _prepare_and_send_output(self, cmd, msg, cmd_options, output):
+    def _prepare_and_send_output(self, cmd, msg, cmd_options, output):
         if cmd_options.get('reply_in_thread'):
             if hasattr(msg, 'thread_ts'):
                 thread_ts = msg.thread_ts
@@ -242,10 +253,10 @@ class Bot(object):
         else:
             thread_ts = None
         if cmd in self.always_send_dm or cmd_options.get('always_send_dm'):
-            await self.send_im(msg.user, output)
+            self.send_im(msg.user, output)
         else:
-            await self.send_message(msg.channel, output, thread=thread_ts,
-                                    reply_broadcast=cmd_options.get('reply_broadcast'))
+            self.send_message(msg.channel, output, thread=thread_ts,
+                              reply_broadcast=cmd_options.get('reply_broadcast'))
 
     def _event_error(self, **payload):
         msg = self._handle_event('error', payload)
