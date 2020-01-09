@@ -2,6 +2,7 @@ import textwrap
 import asyncio
 import os
 
+
 def format_docstring(docstring):
     """
     Uses textwrap to auto-dedent a docstring (removes leading spaces)
@@ -20,6 +21,7 @@ def format_docstring(docstring):
     )
     return formatted_text
 
+
 def output_to_repl(text):
     try:
         console_width = min(int(os.popen('stty size', 'r').read().split()[1]), 120) - 20
@@ -30,6 +32,7 @@ def output_to_repl(text):
     banner = padding + banner_text + padding
     print(banner + os.linesep + text + os.linesep + '=' * len(banner))
 
+
 async def dev_mode_repl(bot):
     banner = 'Slackminion: Starting DEV MODE'
     if hasattr(bot, 'user_manager'):
@@ -37,6 +40,14 @@ async def dev_mode_repl(bot):
     await asyncio.sleep(1)
     print(banner)
     print('=' * len(banner))
+    print("""
+    Note: Plugins loaded in this mode will send all output to
+    the test window, rather than to slack.
+
+    However, the commands themselves are not modified in any way.  
+    Typing commands from any loaded plugins ** WILL ACTUALLY RUN THE COMMAND **
+    and any backend code associated. Only OUTPUT is suppressed.
+    """)
     while bot.runnable:
         try:
             command = input("Slackminion DEV_MODE (type a !command.  use 'exit' to leave)> ")

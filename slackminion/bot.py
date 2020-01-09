@@ -60,10 +60,9 @@ class Bot(object):
         self.plugins.load_state()
         if self.dev_mode:
             self.rtm_client = None
-            self.web_client = None
         else:
             self.rtm_client = slack.RTMClient(token=self.config.get('slack_token'), run_async=True)
-            self.web_client = slack.WebClient(token=self.config.get('slack_token'), run_async=True)
+        self.web_client = slack.WebClient(token=self.config.get('slack_token'), run_async=True)
 
         self.always_send_dm = ['_unauthorized_']
         if 'always_send_dm' in self.config:
