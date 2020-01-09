@@ -1,6 +1,7 @@
 import textwrap
 import asyncio
 import os
+import getpass
 
 
 def format_docstring(docstring):
@@ -21,7 +22,8 @@ def format_docstring(docstring):
     )
     return formatted_text
 
-def output_to_repl(text):
+
+def output_to_dev_console(text):
     try:
         console_width = min(int(os.popen('stty size', 'r').read().split()[1]), 120) - 20
     except:
@@ -31,7 +33,8 @@ def output_to_repl(text):
     banner = padding + banner_text + padding
     print(banner + os.linesep + text + os.linesep + '=' * len(banner))
 
-async def dev_mode_repl(bot):
+
+async def dev_console(bot):
     banner = 'Slackminion: Starting DEV MODE'
     if hasattr(bot, 'user_manager'):
         delattr(bot, 'user_manager')
@@ -65,7 +68,7 @@ async def dev_mode_repl(bot):
         print(f'read command: {command}')
         payload = {
             'data': {
-                'user': 'console_user',
+                'user': getpass.getuser(),
                 'channel': 'stdout',
                 'text': command,
                 'ts': None
