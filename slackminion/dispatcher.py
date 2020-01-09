@@ -37,6 +37,7 @@ class PluginCommand(BaseCommand):
         self.is_subcmd = method.is_subcmd
         self.while_ignored = method.while_ignored
         self.cmd_options = method.cmd_options
+        self.is_async = inspect.iscoroutinefunction(method)
 
 
 class WebhookCommand(BaseCommand):
@@ -63,7 +64,7 @@ class MessageDispatcher(object):
         self.ignored_channels = []
         self.ignored_events = ['message_replied', 'message_changed']
 
-    def push(self, message):
+    async def push(self, message):
         """
         Takes a SlackEvent, parses it for a command, and runs against registered plugin
         """
@@ -85,7 +86,11 @@ class MessageDispatcher(object):
                 if self._is_channel_ignored(f, message.channel):
                     self.log.info("Channel %s is ignored, discarding command %s", message.channel, cmd)
                     return '_ignored_', "", None
-                return cmd, f.execute(message, msg_args), f.cmd_options
+                if f.is_async:
+                    output = await f.execute(message, msg_args)
+                    return cmd, output, f.cmd_options
+                else:
+                    return cmd, f.execute(message, msg_args), f.cmd_options
             return '_unauthorized_', "Sorry, you are not authorized to run %s" % cmd, None
         return None, None, None
 
