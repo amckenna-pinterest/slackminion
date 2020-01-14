@@ -50,25 +50,21 @@ class TestBasePlugin(unittest.TestCase):
         self.plugin.stop_timer(dummy_func)
         assert dummy_func not in self.plugin._timer_callbacks
 
-    @mock.patch('slackminion.plugin.base.SlackChannel')
-    def test_get_channel(self, mock_channel):
-        mock_channel.get_channel.return_value = TestChannel()
-        channel = self.plugin.get_channel(test_channel_name)
-        assert channel.id == test_channel_id
-        assert channel.name == test_channel_name
+    def test_get_channel(self):
+        self.plugin.get_channel(test_channel_name)
+        self.plugin._bot.get_channel.assert_called()
 
     @mock.patch('slackminion.plugin.base.SlackUser')
     def test_get_user_without_user_manager(self, mock_user):
-        mock_user.get_user.return_value = TestUser()
+        mock_user.load_user_from_slack.return_value = TestUser()
         self.plugin._bot.user_manager = None
         delattr(self.plugin._bot, 'user_manager')
         user = self.plugin.get_user(test_user_name)
         assert user.id == test_user_id
         assert user.username == test_user_name
 
-    def test_get_user_user_manager(self):
+    def test_get_user_from_user_manager(self):
         self.plugin._bot.user_manager.get_by_username.return_value = test_user
-        test_user._sc.server.users.find.return_value = TestUser()
         user = self.plugin.get_user(test_user_name)
         self.plugin._bot.user_manager.get_by_username.assert_called_with(test_user_name)
         assert user.id == test_user_id
@@ -76,20 +72,14 @@ class TestBasePlugin(unittest.TestCase):
 
     def test_get_user_fail_nonexistent(self):
         self.plugin._bot.user_manager.get_by_username.return_value = None
-        test_user._sc.server.users.find.return_value = None
+        test_user.api_client.users_info.find.return_value = None
         self.plugin._bot.sc.server.users.find.return_value = None
         user = self.plugin.get_user(non_existent_user_name)
         self.plugin._bot.user_manager.get_by_username.assert_called_with(non_existent_user_name)
         assert user is None
 
     def test_send_message(self):
-        for channel, result in test_message_data:
-            self.plugin._bot = mock.Mock()
-            expected_method = getattr(self.plugin._bot, result)
+        self.plugin._bot = mock.Mock()
+        self.plugin.send_message(test_channel, 'Yet another test string')
+        self.plugin._bot.send_message.assert_called()
 
-            self.plugin.send_message(channel, 'Yet another test string')
-            expected_method.assert_called()
-
-            self.plugin.send_message(channel, 'Yet another test string', thread=12345.67,
-                                     reply_broadcast=True)
-            expected_method.assert_called()

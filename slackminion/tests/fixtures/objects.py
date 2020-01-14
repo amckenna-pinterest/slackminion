@@ -33,3 +33,7 @@ class DummyPlugin(BasePlugin):
     @cmd(aliases='jih', reply_in_thread=True, reply_broadcast=True)
     def hij(self, msg, args):
         return 'hijih'
+
+    @cmd(reply_in_thread=True, reply_broadcast=True)
+    async def asyncabc(self, msg, args):
+        return 'asyncabc response'

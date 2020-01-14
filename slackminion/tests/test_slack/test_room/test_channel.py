@@ -1,4 +1,4 @@
-from slackminion.slack.room.room import SlackChannel, SlackGroup
+from slackminion.slack import SlackConversation
 from slackminion.tests.fixtures import *
 
 str_format = '<#{id}|{name}>'
@@ -39,41 +39,22 @@ class TSlackRoom(object):
         self.object.name = self.test_room_name
         assert self.object.name == self.test_room_name
 
-        self.object = SlackChannel(self.test_id, name=self.test_room_name, sc=mock.Mock())
+        self.object = SlackConversation(self.test_id, name=self.test_room_name, api_client=mock.Mock())
         assert self.object.name == self.test_room_name
 
     def test_get_channel(self):
         test_channel = mock.Mock()
         test_channel.id = self.test_id
         test_channel.name = self.test_room_name
-        self.object._sc.server.channels.find.return_value = test_channel
-        channel = self.room_class.get_channel(self.object._sc, self.test_room_name)
-        print(self.object._sc.mock_calls)
+        self.object.api_client.server.channels.find.return_value = test_channel
+        channel = self.room_class.get_channel(self.object.api_client, self.test_room_name)
+        print(self.object.api_client.mock_calls)
         assert isinstance(channel, self.room_class)
 
     def test_set_topic(self):
         api_name = self.room_class.API_PREFIX + '.setTopic'
         new_topic_name = 'A new topic'
         self.object.set_topic(new_topic_name)
-        print(self.object._sc.mock_calls)
-        self.object._sc.api_call.assert_called_with(api_name, channel=self.test_id, topic=new_topic_name)
+        print(self.object.api_client.mock_calls)
+        self.object.api_client.api_call.assert_called_with(api_name, channel=self.test_id, topic=new_topic_name)
 
-
-
-class TestSlackChannel(TSlackRoom):
-    room_class = SlackChannel
-    test_id = test_channel_id
-    test_room_name = test_channel_name
-
-
-class TestSlackGroup(TSlackRoom):
-    room_class = SlackGroup
-    test_id = test_group_id
-    test_room_name = test_group_name
-
-
-def test_get_channel_none():
-    sc = mock.Mock()
-    sc.server.channels.find.return_value = None
-    channel = SlackChannel.get_channel(sc, 'doesnotexist')
-    assert channel is None

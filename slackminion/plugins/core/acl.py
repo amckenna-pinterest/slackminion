@@ -182,10 +182,7 @@ class AuthManager(BasePlugin):
         # Commands not needing admin-level access pass
         if not cmd.admin_only:
             return True
-
-        if hasattr(user, 'is_admin'):
-            return user.is_admin
-        return False
+        return user.is_bot_admin
 
     def acl_check(self, cmd, user):
         effective_acl = cmd.acl

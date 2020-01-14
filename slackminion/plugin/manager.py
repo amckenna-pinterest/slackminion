@@ -65,7 +65,7 @@ class PluginManager(object):
                 if self.test_mode:
                     self.metrics['plugins_loaded'] += 1
                     self.metrics['load_times'][name] = (datetime.now() - plugin_start_time).total_seconds() * 1000.0
-            except Exception: # noqa
+            except Exception:  # noqa
                 self.log.exception("Failed to register plugin %s", name)
                 if self.test_mode:
                     self.metrics['plugins_failed'].append(name)
@@ -109,7 +109,7 @@ class PluginManager(object):
 
     def load_state(self):
         if self.state_handler is None:
-            self.log.warn("Unable to load state, no handler registered")
+            self.log.warning("Unable to load state, no handler registered")
             return
         try:
             state_str = self.state_handler.load_state()

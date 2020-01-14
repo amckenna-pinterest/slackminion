@@ -1,3 +1,4 @@
+from slackminion.slack import SlackUser, SlackConversation
 import textwrap
 import asyncio
 import os
@@ -26,7 +27,7 @@ def format_docstring(docstring):
 def output_to_dev_console(text):
     try:
         console_width = min(int(os.popen('stty size', 'r').read().split()[1]), 120) - 20
-    except:
+    except Exception:
         console_width = 80
     banner_text = ' COMMAND OUTPUT '
     padding = '=' * ((console_width - len(banner_text)) // 2)
@@ -35,6 +36,7 @@ def output_to_dev_console(text):
 
 
 async def dev_console(bot):
+    import readline  # noqa -- only the import is needed for readline support in input
     banner = 'Slackminion: Starting DEV MODE'
     if hasattr(bot, 'user_manager'):
         delattr(bot, 'user_manager')
@@ -64,14 +66,17 @@ async def dev_console(bot):
             bot.log.exception('Caught {}'.format(e))
             bot.runnable = False
             raise
-
-        print(f'read command: {command}')
+        user = SlackUser(user_id="UDEVMODE")
+        channel_id = 'CDEVMODE'
+        channel = SlackConversation(None, None)
+        channel.load(channel_id)
+        user._username = getpass.getuser()
         payload = {
             'data': {
-                'user': getpass.getuser(),
-                'channel': 'stdout',
+                'user': user,
+                'channel': channel,
                 'text': command,
-                'ts': None
+                'ts': None,
             }
         }
         await bot._event_message(**payload)

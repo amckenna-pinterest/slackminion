@@ -1,4 +1,3 @@
-import mock
 from slackminion.plugins.core.acl import AuthManager
 from slackminion.dispatcher import MessageDispatcher
 from slackminion.tests.fixtures import *
@@ -13,15 +12,9 @@ class TestAuthManager(unittest.TestCase):
     def setUp(self, *args):
         self.object = AuthManager(bot=mock.Mock())
         self.object._bot.dispatcher = MessageDispatcher()
-        self.object._bot.sc.users.find.return_value = TestUser()
-        test_payload = {
-            'data': {
-                'user': test_user_id,
-                'channel': test_channel_id,
-                'text': test_text,
-            },
-        }
-        self.test_event = SlackEvent(event_type='tests', sc=self.object._bot._sc, **test_payload)
+        self.object._bot.api_client.users_find.return_value = TestUser()
+        self.test_event = SlackEvent(event_type='tests', **test_payload)
+        self.test_user = SlackUser(user_info=test_user_response['user'], api_client=self.object._bot.api_client)
 
     def test_acl(self):
         e = self.test_event
@@ -112,46 +105,47 @@ class TestAuthManager(unittest.TestCase):
 
     def test_admin_check_admin_cmd_non_user(self):
         self.object._bot.dispatcher.register_plugin(DummyPlugin(self.object._bot))
-        e = self.test_event
+        test_user = SlackUser(user_info=test_payload['data'], api_client=self.object._bot.api_client)
+        test_user.set_admin(False)
         cmd = self.object._bot.dispatcher.commands['!abc']
         cmd.admin_only = True
-        assert AuthManager.admin_check(cmd, e.user) is False
+        self.assertFalse(AuthManager.admin_check(cmd, test_user))
 
     def test_admin_check_admin_cmd_admin_user(self):
+        user = SlackUser(user_info=test_user_response['user'])
+        user.set_admin(True)
         self.object._bot.dispatcher.register_plugin(DummyPlugin(self.object._bot))
-        e = self.test_event
         cmd = self.object._bot.dispatcher.commands['!abc']
         cmd.admin_only = True
-        e.user.is_admin = True
-        assert AuthManager.admin_check(cmd, e.user) is True
+        assert AuthManager.admin_check(cmd, user) is True
 
     def test_acl_check_default_allow(self):
         self.object.on_load()
         self.object._bot.dispatcher.register_plugin(DummyPlugin(self.object._bot))
-        e = self.test_event
         cmd = self.object._bot.dispatcher.commands['!abc']
-        assert self.object.acl_check(cmd, e.user) is True
+        assert self.object.acl_check(cmd, self.test_user) is True
 
     def test_acl_check_explicit_allow(self):
         self.object.on_load()
         self.object._bot.dispatcher.register_plugin(DummyPlugin(self.object._bot))
-        e = self.test_event
         cmd = self.object._bot.dispatcher.commands['!abc']
-        self.object.add_user_to_allow('*', e.user.username)
-        assert self.object.acl_check(cmd, e.user) is True
+        self.object.add_user_to_allow('*', self.test_user.username)
+        assert self.object.acl_check(cmd, self.test_user) is True
 
     def test_acl_check_explicit_deny(self):
         self.object.on_load()
         self.object._bot.dispatcher.register_plugin(DummyPlugin(self.object._bot))
-        e = self.test_event
         cmd = self.object._bot.dispatcher.commands['!abc']
-        self.object.add_user_to_deny('*', e.user.username)
-        assert self.object.acl_check(cmd, e.user) is False
+        self.object.add_user_to_deny('*', self.test_user.username)
+        assert self.object.acl_check(cmd, self.test_user) is False
 
     def test_acl_check_nonexist_acl_fallback(self):
         self.object.on_load()
         self.object._bot.dispatcher.register_plugin(DummyPlugin(self.object._bot))
-        e = self.test_event
         cmd = self.object._bot.dispatcher.commands['!abc']
         cmd.acl = 'doesnotexist'
-        assert self.object.acl_check(cmd, e.user) is True
+        assert self.object.acl_check(cmd, self.test_user) is True
+
+
+if __name__ == "__main__":
+    unittest.main()

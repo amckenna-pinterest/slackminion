@@ -20,23 +20,29 @@ test_help_short_data = [
     ('!abc', '*!abc*: No description provided.'),
 ]
 
+test_payload = {
+    'rtm_client': mock.Mock(),
+    'web_client': mock.Mock(),
+    'data': {
+        'id': test_user_id,
+        'name': test_user_name,
+        'channel': test_channel_id,
+    },
+}
+
 
 class BasicPluginTest(object):
     PLUGIN_CLASS = None
     BASE_METHODS = ['on_load', 'on_connect', 'on_unload']
     ADMIN_COMMANDS = []
 
-    def setUp(self):
+    @mock.patch('slackminion.slack.SlackUser')
+    def setUp(self, mock_user):
+        mock_user.return_value = test_user
         bot = mock.Mock()
         if self.PLUGIN_CLASS:
             self.object = self.PLUGIN_CLASS(bot)
-            test_payload = {
-                'data': {
-                    'user': test_user_id,
-                    'channel': test_channel_id,
-                },
-            }
-            self.test_event = SlackEvent(event_type='tests', sc=bot._sc, **test_payload)
+            self.test_event = SlackEvent(event_type='tests', **test_payload)
 
     def tearDown(self):
         self.object = None
@@ -87,12 +93,14 @@ class TestCorePlugin(BasicPluginTest, unittest.TestCase):
         assert self.object._bot.runnable is False
 
     def test_whoami(self):
-        self.object._bot._sc.server.users.find.return_value = TestUser
+        self.test_event.user.api_client.users_info.return_value = test_user_response
         self.object._bot.commit = test_commit
         from slackminion.plugins.core import version
         self.object._bot.version = version
+        print(self.test_event.user.api_client.mock_calls)
         output = self.object.whoami(self.test_event, None)
-        assert output == f'Hello <@U12345678|testuser>\nBot version: {version}-{test_commit}'
+
+        assert output == f'Hello <@{test_user_id}|{test_user_name}>\nBot version: {version}-{test_commit}'
 
     def test_sleep(self):
         self.object._get_channel_from_msg_or_args = mock.Mock(return_value=TestChannel)
@@ -110,11 +118,12 @@ class TestCorePlugin(BasicPluginTest, unittest.TestCase):
         print(self.object._bot.mock_calls)
         self.object._bot.dispatcher.unignore.assert_called_with(TestChannel)
 
-    @mock.patch('slackminion.plugin.base.SlackChannel')
+    @mock.patch('slackminion.plugin.base.SlackConversation')
     def test_wake_channel(self, mock_slackchannel):
-        mock_slackchannel.return_value = TestChannel
-        self.object.wake(self.test_event, [test_channel_name])
-        mock_slackchannel.get_channel.assert_called_with(self.object._bot.sc, test_channel_name)
+        mock_slackchannel.return_value = test_conversation
+        self.object.send_message = mock.Mock()
+        self.object.wake(test_conversation, [test_channel_name])
+        self.object.send_message.assert_called()
 
     def test_get_help_for_command(self):
         for command, helpstr in test_help_long_data:
@@ -135,3 +144,7 @@ class TestCorePlugin(BasicPluginTest, unittest.TestCase):
             self.object._bot.dispatcher = MessageDispatcher()
             self.object._bot.dispatcher.register_plugin(DummyPlugin(self.object._bot))
             assert self.object._get_short_help_for_command(command) == helpstr
+
+
+if __name__ == "__main__":
+    unittest.main()

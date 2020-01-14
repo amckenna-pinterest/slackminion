@@ -1,42 +1,35 @@
-import slack
-
-from slackminion.slack import SlackUser
 from slackminion.tests.fixtures import *
-
-str_format = '<@{id}|{name}>'
-
-test_user_mapping = []
+import unittest
+from unittest import mock
 
 
-class TestSlackUser(object):
+class TestSlackUser(unittest.TestCase):
 
-    def setup(self):
-        sc = mock.Mock()
-        self.object = SlackUser(test_user_id, sc=sc)
+    def setUp(self):
+        self.api_client = mock.Mock()
 
-    def teardown(self):
-        self.object = None
+    def tearDown(self):
+        self.api_client = None
 
-    def test_init(self):
-        assert self.object.id == test_user_id
+    def test_init_with_userid(self):
+        self.api_client.users_info.return_value = test_user_response
+        user = SlackUser(user_id=test_user_id, api_client=self.api_client)
+        self.api_client.users_info.assert_called_with(test_user_id)
+        self.assertEqual(user.id, test_user_id)
+        self.assertEqual(user.user_id, test_user_id)
+        self.assertEqual(user.userid, test_user_id)
+        self.assertEqual(user.username, test_user_name)
 
-    def test_userid(self):
-        assert self.object.userid == test_user_id
+    def test_init_with_user_info(self):
+        self.api_client.users_info.return_value = None
+        user = SlackUser(user_info=test_user_response['user'], api_client=self.api_client)
+        print(user._user_id)
+        self.assertEqual(user.id, test_user_id)
+        self.assertEqual(user.user_id, test_user_id)
+        self.assertEqual(user.userid, test_user_id)
+        self.assertEqual(user.username, test_user_name)
 
-    def test_username(self):
-        class resp(object):
-            id = test_user_id
-            name = test_user_name
-        self.object._sc.server.users.find.return_value = resp
-        assert self.object.username == test_user_name
-
-    def test_get_user(self):
-        user = SlackUser.get_user(self.object._sc, test_user_name)
-        assert isinstance(user, SlackUser)
-
-
-def test_get_user_none():
-    mock_sc = mock.Mock()
-    mock_sc.server.users.find.return_value = None
-    user = SlackUser.get_user(mock_sc, 'doesnotexist')
-    assert user is None
+    def test_get_user_none(self):
+        self.api_client.users_info.return_value = None
+        with self.assertRaises(RuntimeError):
+            user = SlackUser(user_id='doesnotexist', api_client=self.api_client)

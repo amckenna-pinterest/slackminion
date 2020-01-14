@@ -4,7 +4,7 @@ from operator import itemgetter
 
 from slackminion.plugin import cmd, webhook
 from slackminion.plugin.base import BasePlugin
-from slackminion.slack import SlackRoom
+from slackminion.slack import SlackConversation
 
 from . import version
 try:
@@ -69,7 +69,7 @@ class Core(BasePlugin):
     def whoami(self, msg, args):
         """Prints information about the user and bot version."""
         output = ["Hello %s" % msg.user.formatted_name]
-        if hasattr(self._bot.dispatcher, 'auth_manager') and msg.user.is_admin is True:
+        if hasattr(self._bot.dispatcher, 'auth_manager') and msg.user.is_bot_admin:
             output.append("You are a *bot admin*.")
         output.append("Bot version: %s-%s" % (self._bot.version, self._bot.commit))
         return '\n'.join(output)
@@ -138,7 +138,7 @@ class Core(BasePlugin):
     def _get_channel_from_msg_or_args(self, msg, args):
         channel = None
         if len(args) == 0:
-            if isinstance(msg.channel, SlackRoom):
+            if isinstance(msg.channel, SlackConversation):
                 channel = msg.channel
         else:
             channel = self.get_channel(args[0])

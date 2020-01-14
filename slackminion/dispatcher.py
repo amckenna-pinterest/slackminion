@@ -1,7 +1,7 @@
 from six import string_types
 from flask import current_app, request
 from slackminion.exceptions import DuplicateCommandError
-from slackminion.slack import SlackChannel
+from slackminion.slack.conversation import SlackConversation
 from slackminion.utils.util import format_docstring
 import logging
 import inspect
@@ -64,33 +64,33 @@ class MessageDispatcher(object):
         self.ignored_channels = []
         self.ignored_events = ['message_replied', 'message_changed']
 
-    async def push(self, message):
+    async def push(self, event):
         """
         Takes a SlackEvent, parses it for a command, and runs against registered plugin
         """
-        if self._ignore_event(message):
+        if self._ignore_event(event):
             return None, None, None
-        args = self._parse_message(message)
+        args = self._parse_message(event)
         self.log.debug("Searching for command using chunks: %s", args)
         cmd, msg_args = self._find_longest_prefix_command(args)
         if cmd is not None:
-            if message.user is None:
-                self.log.debug("Discarded message with no originating user: %s", message)
+            if event.user is None:
+                self.log.debug("Discarded message with no originating user: %s", event)
                 return None, None, None
-            sender = message.user.username
-            if message.channel is not None:
-                sender = "#%s/%s" % (message.channel.name, sender)
+            sender = event.user.username
+            if event.channel is not None:
+                sender = "#%s/%s" % (event.channel.name, sender)
             self.log.info("Received from %s: %s, args %s", sender, cmd, msg_args)
-            f = self._get_command(cmd, message.user)
+            f = self._get_command(cmd, event.user)
             if f:
-                if self._is_channel_ignored(f, message.channel):
-                    self.log.info("Channel %s is ignored, discarding command %s", message.channel, cmd)
+                if self._is_channel_ignored(f, event.channel):
+                    self.log.info("Channel %s is ignored, discarding command %s", event.channel, cmd)
                     return '_ignored_', "", None
                 if f.is_async:
-                    output = await f.execute(message, msg_args)
+                    output = await f.execute(event, msg_args)
                     return cmd, output, f.cmd_options
                 else:
-                    return cmd, f.execute(message, msg_args), f.cmd_options
+                    return cmd, f.execute(event, msg_args), f.cmd_options
             return '_unauthorized_', "Sorry, you are not authorized to run %s" % cmd, None
         return None, None, None
 
@@ -141,19 +141,17 @@ class MessageDispatcher(object):
                     current_app.add_url_rule(method.route, method.__name__, webhook.execute, methods=[method.method])
 
     def ignore(self, channel):
-        if isinstance(channel, SlackChannel):
-            channel = channel.name
-        if channel not in self.ignored_channels:
-            self.ignored_channels.append(channel)
-            return True
+        if channel.is_channel:
+            if channel.name not in self.ignored_channels:
+                self.ignored_channels.append(channel.name)
+                return True
         return False
 
     def unignore(self, channel):
-        if isinstance(channel, SlackChannel):
-            channel = channel.name
-        if channel in self.ignored_channels:
-            self.ignored_channels.remove(channel)
-            return True
+        if channel.is_channel:
+            if channel.name in self.ignored_channels:
+                self.ignored_channels.remove(channel.name)
+                return True
         return False
 
     def _find_longest_prefix_command(self, args):
